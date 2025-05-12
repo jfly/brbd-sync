@@ -1,0 +1,38 @@
+[project]
+name = "brbd-sync"
+version = "0.1.0"
+description = "Two-way sync between Baserow and Buttondown"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "click>=8.1.8",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+    "pytest-cov>=6.0.0",
+]
+
+[project.scripts]
+brbd-sync = "brbd_sync.cli:main"
+
+[tool.ruff.lint]
+extend-select = ["I"]
+
+[tool.pytest.ini_options]
+# Always print a full diff on assertion failures.
+verbosity_assertions = 2
+addopts = [
+    # https://docs.pytest.org/en/stable/explanation/goodpractices.html#which-import-mode
+    "--import-mode=importlib",
+    "--cov=src",
+]
+# Treat warnings as errors.
+filterwarnings = [
+    "error",
+]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
