@@ -1,3 +1,6 @@
+# Dev secrets
+/.envrc.local
+
 # Nix
 /.direnv
 /result*
