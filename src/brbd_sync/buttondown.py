@@ -1,30 +1,30 @@
-import buttondown_api_client
-from pydantic import Field
+import requests
+from pydantic import BaseModel, Field
 
 from .datasource import MailingListDatasource, Subscriber
 
 
 class BaserowSubscriber(Subscriber):
-    full_name: str = Field(alias="Full Name")
-    email: str | None = Field(alias="Email")
+    email: str | None = Field(alias="email_address")
+
+
+class BaserowListSubscribersResponse(BaseModel):
+    results: list[BaserowSubscriber]
+    next: str | None
 
 
 def load_subscribers(api_key: str) -> MailingListDatasource:
-    client = buttondown_api_client.AuthenticatedClient(
-        base_url="https://api.buttondown.com",
-        token=api_key,
-    )
-    with client as client:
-        my_data: MyDataModel = get_my_data_model.sync(client=client)
-
-    api = buttondown_api_client.api
-
-    # <<< baserow = Baserow(url="https://api.baserow.io", token=api_key)
-    # <<< table = baserow.get_table(table_id)
+    next = "https://api.buttondown.com/v1/subscribers"
+    headers = {"Authorization": f"Token {api_key}"}
 
     subscribers: list[Subscriber] = []
-    # <<< for row in table.row_generator():
-    # <<<     br_sub = BaserowSubscriber(**row.to_dict())
-    # <<<     subscribers.append(br_sub)
+
+    while next is not None:
+        response = requests.request("GET", next, headers=headers)
+        assert response.status_code == 200
+        parsed_response = BaserowListSubscribersResponse(**response.json())
+        subscribers.extend(parsed_response.results)
+
+        next = parsed_response.next
 
     return MailingListDatasource(subscribers=subscribers)

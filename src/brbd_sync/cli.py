@@ -34,5 +34,18 @@ def main(baserow_api_key: str, baserow_table_id: int, buttondown_api_key: str):
         api_key=baserow_api_key, table_id=baserow_table_id
     )
     buttondown_datasource = buttondown.load_subscribers(api_key=buttondown_api_key)
-    print(baserow_datasource)
-    print(buttondown_datasource)
+
+    baserow_emails = set(
+        s.email for s in baserow_datasource.subscribers if s.email is not None
+    )
+    buttondown_emails = set(
+        s.email for s in buttondown_datasource.subscribers if s.email is not None
+    )
+    missing = sorted(baserow_emails - buttondown_emails)
+    extra = sorted(buttondown_emails - baserow_emails)
+
+    print("### Extra emails (present in Buttondown, but not in Baserow)")
+    print("\n".join(extra))
+
+    print("### Missing emails (missing in Buttondown, but present in Baserow)")
+    print("\n".join(missing))
