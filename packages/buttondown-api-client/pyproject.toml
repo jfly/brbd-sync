@@ -1,0 +1,14 @@
+[project]
+name = "buttondown-api-client"
+
+dynamic = ["version", "dependencies"]
+
+[build-system]
+requires = [
+    "py-generator-build-backend",
+    "poetry-core>=1.0.0",
+]
+build-backend = "py_generator_build_backend"
+
+[tools.py-generator-build-backend]
+generator = "$OPENAPI_PYTHON_CLIENT_BIN generate --path $BUTTONDOWN_OPENAPI_JSON --output-path $GENERATOR_OUT_PATH"

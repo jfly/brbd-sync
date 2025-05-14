@@ -1,6 +1,6 @@
 import click
 
-from .datasource import MailingListDatasource
+from . import baserow, buttondown
 
 
 def option_with_envvar(*args, **kwargs):
@@ -23,8 +23,16 @@ def option_with_envvar(*args, **kwargs):
     envvar="BASEROW_TABLE_ID",
     help="Baserow table id.",
 )
-def main(baserow_api_key: str, baserow_table_id: int):
-    baserow_datasource = MailingListDatasource.from_baserow_table(
+@option_with_envvar(
+    "--buttondown-api-key",
+    required=True,
+    envvar="BUTTONDOWN_API_KEY",
+    help="Buttondown api id.",
+)
+def main(baserow_api_key: str, baserow_table_id: int, buttondown_api_key: str):
+    baserow_datasource = baserow.load_subscribers(
         api_key=baserow_api_key, table_id=baserow_table_id
     )
+    buttondown_datasource = buttondown.load_subscribers(api_key=buttondown_api_key)
     print(baserow_datasource)
+    print(buttondown_datasource)

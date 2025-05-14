@@ -1,5 +1,17 @@
 {
   "nodes": {
+    "buttondown-openapi": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-3NiWWzDstAgCWcS0Lx3jZwVvWbeH0zCuR39UOE4afF0=",
+        "type": "file",
+        "url": "https://docs.buttondown.com/openapi.json"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://docs.buttondown.com/openapi.json"
+      }
+    },
     "devshell": {
       "inputs": {
         "nixpkgs": "nixpkgs"
@@ -96,15 +108,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1744599653,
-        "narHash": "sha256-nysSwVVjG4hKoOjhjvE6U5lIKA8sEr1d1QzEfZsannU=",
-        "owner": "pyproject-nix",
+        "lastModified": 1747086119,
+        "narHash": "sha256-iXK0HeggoZVCulNBwPykco43mdRehj3Iaehh6To3Xq8=",
+        "owner": "jfly",
         "repo": "build-system-pkgs",
-        "rev": "7dba6dbc73120e15b558754c26024f6c93015dd7",
+        "rev": "e7fa49295468487d6152588dd31c6ecc833a0c9f",
         "type": "github"
       },
       "original": {
-        "owner": "pyproject-nix",
+        "owner": "jfly",
+        "ref": "add-py-generator-build-backend",
         "repo": "build-system-pkgs",
         "type": "github"
       }
@@ -131,6 +144,7 @@
     },
     "root": {
       "inputs": {
+        "buttondown-openapi": "buttondown-openapi",
         "devshell": "devshell",
         "flake-parts": "flake-parts",
         "nixpkgs": "nixpkgs_2",

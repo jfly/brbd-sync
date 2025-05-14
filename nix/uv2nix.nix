@@ -27,6 +27,10 @@ in
             workspaceRoot = lib.mkOption {
               type = lib.types.path;
               description = "Path to the root of the UV workspace";
+              apply =
+                path:
+                # Workaround for https://github.com/pyproject-nix/uv2nix/issues/179
+                /. + (builtins.unsafeDiscardStringContext path);
             };
 
             python = lib.mkOption {
@@ -51,6 +55,17 @@ in
               '';
               default = [ ];
             };
+
+            env = lib.mkOption {
+              type = lib.types.attrsOf lib.types.str;
+              description = ''
+                Build/development environment variables.
+
+                Note: these environment variables are used in the build process
+                of *all* local packages for this workspace.
+              '';
+              default = { };
+            };
           };
         };
       };
@@ -69,13 +84,17 @@ in
         cfg = config.uv2nix;
 
         python = cfg.python;
-        workspace = inputs.uv2nix.lib.workspace.loadWorkspace {
-          workspaceRoot =
-            # Workaround for https://github.com/pyproject-nix/uv2nix/issues/179
-            /. + (builtins.unsafeDiscardStringContext cfg.workspaceRoot);
+
+        uv2nix-lib = inputs.uv2nix.lib;
+
+        workspace = uv2nix-lib.workspace.loadWorkspace {
+          workspaceRoot = cfg.workspaceRoot;
         };
 
         pyprojectToml = lib.importTOML (cfg.workspaceRoot + "/pyproject.toml");
+
+        uvLock = uv2nix-lib.lock1.parseLock (lib.importTOML (cfg.workspaceRoot + "/uv.lock"));
+        localPackages = builtins.filter uv2nix-lib.lock1.isLocalPackage uvLock.package;
 
         overlay = workspace.mkPyprojectOverlay {
           sourcePreference = "wheel";
@@ -89,12 +108,30 @@ in
                 inputs.pyproject-build-systems.overlays.default
                 overlay
                 cfg.pyprojectOverrides
+                (
+                  final: prev:
+                  lib.pipe localPackages [
+                    (map (
+                      localPackage:
+                      lib.nameValuePair localPackage.name (
+                        prev.${localPackage.name}.overrideAttrs (oldAttrs: {
+                          env = (oldAttrs.env or { }) // cfg.env;
+                        })
+                      )
+                    ))
+                    lib.listToAttrs
+                  ]
+                )
               ]
             );
 
         # Create an overlay enabling editable mode for all local dependencies.
         editableOverlay = workspace.mkEditablePyprojectOverlay {
           root = "$PRJ_ROOT";
+          # TODO: `buttondown-api-client` doesn't work if it's installed
+          # editable. Is there some way to mark a project as "not editable
+          # compatible", and would uv2nix be able to pick up on that?
+          members = [ "brbd-sync" ];
         };
 
         # Override previous set with our overrideable overlay.
@@ -122,16 +159,19 @@ in
               pkgs.uv
             ];
 
-            env = lib.attrsToList {
-              # Don't create venv using uv.
-              UV_NO_SYNC = "1";
+            env = lib.attrsToList (
+              {
+                # Don't create venv using uv.
+                UV_NO_SYNC = "1";
 
-              # Force uv to use Python interpreter from venv.
-              UV_PYTHON = "${editableVenv}/bin/python";
+                # Force uv to use Python interpreter from venv.
+                UV_PYTHON = "${editableVenv}/bin/python";
 
-              # Prevent uv from downloading managed Pythons.
-              UV_PYTHON_DOWNLOADS = "never";
-            };
+                # Prevent uv from downloading managed Pythons.
+                UV_PYTHON_DOWNLOADS = "never";
+              }
+              // cfg.env
+            );
           };
 
         checks = {

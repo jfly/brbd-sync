@@ -27,10 +27,17 @@
     };
 
     pyproject-build-systems = {
-      url = "github:pyproject-nix/build-system-pkgs";
+      # TODO: consider upstreaming my build backend to `build-system-pkgs`.
+      # url = "github:pyproject-nix/build-system-pkgs";
+      url = "github:jfly/build-system-pkgs/add-py-generator-build-backend";
       inputs.pyproject-nix.follows = "pyproject-nix";
       inputs.uv2nix.follows = "uv2nix";
       inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    buttondown-openapi = {
+      url = "https://docs.buttondown.com/openapi.json";
+      flake = false;
     };
   };
 
