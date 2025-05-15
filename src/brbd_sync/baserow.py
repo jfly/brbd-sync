@@ -9,13 +9,16 @@ class BaserowSubscriber(Subscriber):
     email: str | None = Field(alias="Email")
 
 
-def load_subscribers(api_key: str, table_id: int) -> MailingListDatasource:
+def load_subscribers(
+    api_key: str, table_id: int, tags_column_name: str
+) -> MailingListDatasource:
     baserow = Baserow(url="https://api.baserow.io", token=api_key)
     table = baserow.get_table(table_id)
 
     subscribers: list[Subscriber] = []
     for row in table.row_generator():
-        br_sub = BaserowSubscriber(**row.to_dict())
+        tags = [f"{tags_column_name}: {tag}" for tag in row[tags_column_name]]
+        br_sub = BaserowSubscriber(**row.to_dict(), tags=tags)
         subscribers.append(br_sub)
 
     return MailingListDatasource(subscribers=subscribers)

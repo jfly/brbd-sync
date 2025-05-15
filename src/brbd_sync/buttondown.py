@@ -4,12 +4,12 @@ from pydantic import BaseModel, Field
 from .datasource import MailingListDatasource, Subscriber
 
 
-class BaserowSubscriber(Subscriber):
+class ButtondownSubscriber(Subscriber):
     email: str | None = Field(alias="email_address")
 
 
-class BaserowListSubscribersResponse(BaseModel):
-    results: list[BaserowSubscriber]
+class ButtondownListSubscribersResponse(BaseModel):
+    results: list[ButtondownSubscriber]
     next: str | None
 
 
@@ -22,7 +22,7 @@ def load_subscribers(api_key: str) -> MailingListDatasource:
     while next is not None:
         response = requests.request("GET", next, headers=headers)
         assert response.status_code == 200
-        parsed_response = BaserowListSubscribersResponse(**response.json())
+        parsed_response = ButtondownListSubscribersResponse(**response.json())
         subscribers.extend(parsed_response.results)
 
         next = parsed_response.next
