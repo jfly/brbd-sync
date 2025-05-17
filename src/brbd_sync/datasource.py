@@ -6,6 +6,7 @@ from pydantic import BaseModel
 class Subscriber(BaseModel):
     email: str | None
     tags: set[str]
+    metadata: dict[str, str]
 
 
 class MailingListDatasource(BaseModel):
