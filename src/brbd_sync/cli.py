@@ -74,10 +74,14 @@ def main(
     extra = sorted(buttondown_ids - baserow_ids)
 
     print("### Extra ids (present in Buttondown, but not in Baserow)")
-    print("\n".join(extra))
+    for id in extra:
+        bd_sub = buttondown_datasource.get_subscriber(id=id)
+        print(f"{id}: {bd_sub}")
 
     print("### Missing ids (missing in Buttondown, but present in Baserow)")
-    print("\n".join(missing))
+    for id in missing:
+        br_sub = baserow_datasource.get_subscriber(id=id)
+        print(f"{id}: {br_sub}")
 
     # Now, generate a diffs for every id that exists in both systems.
     synced_ids = sorted(baserow_ids & buttondown_ids)
