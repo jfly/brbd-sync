@@ -30,6 +30,11 @@ def load_subscribers(
         }
 
         concated_emails = row["Email"]
+
+        # Ignore people with no email.
+        if concated_emails == "":
+            continue
+
         emails = [email.strip() for email in concated_emails.split(";")]
 
         for email in emails:
