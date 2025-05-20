@@ -38,4 +38,4 @@ def load_subscribers(
             )
             subscribers.append(br_sub)
 
-    return MailingListDatasource(subscribers=subscribers)
+    return MailingListDatasource(description="Baserow", subscribers=subscribers)

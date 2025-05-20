@@ -27,4 +27,4 @@ def load_subscribers(api_key: str) -> MailingListDatasource:
 
         next = parsed_response.next
 
-    return MailingListDatasource(subscribers=subscribers)
+    return MailingListDatasource(description="Buttondown", subscribers=subscribers)
