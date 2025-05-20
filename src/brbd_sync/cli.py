@@ -1,4 +1,8 @@
+from textwrap import indent
+
 import click
+
+from brbd_sync.datasource import Subscriber
 
 from . import baserow, buttondown
 
@@ -64,41 +68,54 @@ def main(
     )
     buttondown_datasource = buttondown.load_subscribers(api_key=buttondown_api_key)
 
-    baserow_emails = set(
-        s.email for s in baserow_datasource.subscribers if s.email is not None
-    )
-    buttondown_emails = set(
-        s.email for s in buttondown_datasource.subscribers if s.email is not None
-    )
-    missing = sorted(baserow_emails - buttondown_emails)
-    extra = sorted(buttondown_emails - baserow_emails)
+    baserow_ids = set(s.id for s in baserow_datasource.subscribers)
+    buttondown_ids = set(s.id for s in buttondown_datasource.subscribers)
+    missing = sorted(baserow_ids - buttondown_ids)
+    extra = sorted(buttondown_ids - baserow_ids)
 
-    print("### Extra emails (present in Buttondown, but not in Baserow)")
+    print("### Extra ids (present in Buttondown, but not in Baserow)")
     print("\n".join(extra))
 
-    print("### Missing emails (missing in Buttondown, but present in Baserow)")
+    print("### Missing ids (missing in Buttondown, but present in Baserow)")
     print("\n".join(missing))
 
-    # Now, generate a report of incorrect tags/metadata for each email that's synced.
-    synced_emails = sorted(baserow_emails & buttondown_emails)
-    for email in synced_emails:
-        baserow_sub = baserow_datasource.get_subscriber(email=email)
-        buttondown_sub = buttondown_datasource.get_subscriber(email=email)
+    # Now, generate a diffs for every id that exists in both systems.
+    synced_ids = sorted(baserow_ids & buttondown_ids)
+    for id in synced_ids:
+        baserow_sub = baserow_datasource.get_subscriber(id=id)
+        buttondown_sub = buttondown_datasource.get_subscriber(id=id)
 
-        # First, check tags.
-        missing = sorted(baserow_sub.tags - buttondown_sub.tags)
-        extra = sorted(buttondown_sub.tags - baserow_sub.tags)
-        if len(missing + extra) > 0:
-            print(
-                f"Buttondown subscriber {email} has incorrect tags: missing {missing}, has extra {extra}"
-            )
+        diff = compute_diff(baserow_sub, buttondown_sub)
+        if len(diff) > 0:
+            print(f"Found issues with id={id}:")
+            print(indent("\n".join(diff), " " * 4))
 
-        # Next, check metadata.
-        br_metadata = set(baserow_sub.metadata.items())
-        bd_metadata = set(buttondown_sub.metadata.items())
-        missing = sorted(br_metadata - bd_metadata)
-        extra = sorted(bd_metadata - br_metadata)
-        if len(missing + extra) > 0:
-            print(
-                f"Buttondown subscriber {email} has incorrect metadata: missing {missing}, has extra {extra}"
-            )
+
+def compute_diff(baserow_sub: Subscriber, buttondown_sub: Subscriber) -> list[str]:
+    diff = []
+
+    assert baserow_sub.id == buttondown_sub.id
+
+    # Check email.
+    if baserow_sub.email != buttondown_sub.email:
+        diff.append(f"Wrong email: {baserow_sub.email} != {buttondown_sub.email}")
+
+    # Check tags.
+    missings = sorted(baserow_sub.tags - buttondown_sub.tags)
+    extras = sorted(buttondown_sub.tags - baserow_sub.tags)
+    for missing in missings:
+        diff.append(f"Missing tag {missing}")
+    for extra in extras:
+        diff.append(f"Extra tag {extra}")
+
+    # Check metadata.
+    br_metadata = set(baserow_sub.metadata.items())
+    bd_metadata = set(buttondown_sub.metadata.items())
+    missings = sorted(br_metadata - bd_metadata)
+    extras = sorted(bd_metadata - br_metadata)
+    for key, val in missings:
+        diff.append(f"Missing metadata {key!r} = {val!r}")
+    for key, val in extras:
+        diff.append(f"Extra metadata {key!r} = {val!r}")
+
+    return diff

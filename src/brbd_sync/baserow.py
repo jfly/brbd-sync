@@ -19,6 +19,8 @@ def load_subscribers(
 
     subscribers: list[Subscriber] = []
     for row in table.row_generator():
+        assert row.id is not None, f"Unexpectedly found a row with a None id? {row}"
+
         tags = set(
             f"{tags_column_name}: {tag}"
             for tags_column_name in tags_column_names
@@ -37,9 +39,16 @@ def load_subscribers(
 
         emails = [email.strip() for email in concated_emails.split(";")]
 
-        for email in emails:
+        for n, email in enumerate(emails):
+            unique_id = str(row.id)
+            if len(emails) > 1:
+                unique_id += f"-{n + 1}"
             br_sub = BaserowSubscriber(
-                **row.to_dict(), tags=tags, email=email, metadata=metadata
+                **row.to_dict(),
+                tags=tags,
+                email=email,
+                metadata=metadata,
+                id=unique_id,
             )
             subscribers.append(br_sub)
 

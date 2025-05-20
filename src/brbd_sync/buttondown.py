@@ -1,3 +1,6 @@
+import uuid
+from typing import Any
+
 import requests
 from pydantic import BaseModel, Field
 
@@ -6,6 +9,9 @@ from .datasource import MailingListDatasource, Subscriber
 
 class ButtondownSubscriber(Subscriber):
     email: str | None = Field(alias="email_address")
+
+    def model_post_init(self, context: Any):
+        self.id = self.metadata.get("id", f"bogus-{uuid.uuid4()}")
 
 
 class ButtondownListSubscribersResponse(BaseModel):
