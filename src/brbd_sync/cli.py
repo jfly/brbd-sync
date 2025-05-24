@@ -1,8 +1,4 @@
-from textwrap import indent
-
 import click
-
-from brbd_sync.datasource import Subscriber
 
 from . import baserow, buttondown
 
@@ -60,42 +56,68 @@ def main(
     baserow_metadata_columns: list[str],
     buttondown_api_key: str,
 ):
-    baserow_datasource = baserow.load_subscribers(
+    baserow_data = baserow.BaserowData.load(
         api_key=baserow_api_key,
         table_id=baserow_table_id,
         tags_column_names=baserow_tags_columns,
         metadata_column_names=baserow_metadata_columns,
     )
-    buttondown_datasource = buttondown.load_subscribers(api_key=buttondown_api_key)
+    buttondown_data = buttondown.ButtondownData.load(api_key=buttondown_api_key)
 
-    baserow_ids = set(s.id for s in baserow_datasource.subscribers)
-    buttondown_ids = set(s.id for s in buttondown_datasource.subscribers)
+    warnings = sync(baserow_data, buttondown_data)
+
+    if len(warnings) > 0:
+        click.secho(f"Found {len(warnings)} warning(s)", fg="yellow")
+        for warning in warnings:
+            click.secho(warning, fg="yellow")
+
+
+def sync(
+    baserow_data: baserow.BaserowData, buttondown_data: buttondown.ButtondownData
+) -> list[str]:
+    warnings = []
+
+    baserow_ids = set(s.id for s in baserow_data.subscribers)
+    buttondown_ids = set(s.id for s in buttondown_data.subscribers)
     missing = sorted(baserow_ids - buttondown_ids)
     extra = sorted(buttondown_ids - baserow_ids)
 
-    print("### Extra ids (present in Buttondown, but not in Baserow)")
     for id in extra:
-        bd_sub = buttondown_datasource.get_subscriber(id=id)
-        print(f"{id}: {bd_sub}")
+        bd_subs = buttondown_data.get_subscribers(id=id)
+        warnings.append(f"Extra: {bd_subs}")
 
-    print("### Missing ids (missing in Buttondown, but present in Baserow)")
     for id in missing:
-        br_sub = baserow_datasource.get_subscriber(id=id)
-        print(f"{id}: {br_sub}")
+        br_subs = baserow_data.get_subscriber(id=id)
+        warnings.append(f"Missing: {br_subs}")
 
     # Now, generate a diffs for every id that exists in both systems.
     synced_ids = sorted(baserow_ids & buttondown_ids)
     for id in synced_ids:
-        baserow_sub = baserow_datasource.get_subscriber(id=id)
-        buttondown_sub = buttondown_datasource.get_subscriber(id=id)
+        baserow_sub = baserow_data.get_subscriber(id=id)
+        buttondown_subs = buttondown_data.get_subscribers(id=id)
+
+        match len(buttondown_subs):
+            case 0:
+                assert False, f"Unexpectedly found no buttondown subs with id {id}"
+            case 1:
+                (buttondown_sub,) = buttondown_subs
+            case _:
+                warnings.append(
+                    f"Unexpectedly found multiple Buttondown subscribers with id={id}, picking the first one"
+                )
+                buttondown_sub = buttondown_subs[0]
 
         diff = compute_diff(baserow_sub, buttondown_sub)
-        if len(diff) > 0:
-            print(f"Found issues with id={id}:")
-            print(indent("\n".join(diff), " " * 4))
+        for d in diff:
+            warnings.append(f"id={id}: {d}")
+
+    return warnings
 
 
-def compute_diff(baserow_sub: Subscriber, buttondown_sub: Subscriber) -> list[str]:
+def compute_diff(
+    baserow_sub: baserow.BaserowSubscriber,
+    buttondown_sub: buttondown.ButtondownSubscriber,
+) -> list[str]:
     diff = []
 
     assert baserow_sub.id == buttondown_sub.id
