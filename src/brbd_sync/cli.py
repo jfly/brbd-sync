@@ -77,8 +77,9 @@ def main(
     sync_result = sync(baserow_data, buttondown_data, dry_run=dry_run)
 
     if len(sync_result.warnings) == 0:
+        success_prefix = '"Succeeded" (this was a dry run)' if dry_run else "Succeeded"
         click.secho(
-            f"Succeeded after {len(sync_result.operations)} operation(s). See above for details.",
+            f"{success_prefix} after {len(sync_result.operations)} operation(s). See above for details.",
             fg="green",
         )
     else:

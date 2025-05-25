@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 
 class Subscriber(BaseModel):
+    type: str
     email_address: str
     tags: set[str]
     metadata: dict[str, str]
@@ -20,15 +21,33 @@ class Client:
         self._api_key = api_key
 
     def get(self, path: str) -> Any:  # pragma: no cover (requires internet)
+        return self._call("GET", path, None).json()
+
+    def post(self, path: str, data: Any) -> Any:  # pragma: no cover (requires internet)
+        return self._call("POST", path, data).json()
+
+    def delete(self, path: str):  # pragma: no cover (requires internet)
+        self._call("DELETE", path, None)
+
+    def patch(
+        self, path: str, data: Any
+    ) -> Any:  # pragma: no cover (requires internet)
+        return self._call("PATCH", path, data).json()
+
+    def _call(
+        self, method: str, path: str, data: Any | None
+    ) -> requests.Response:  # pragma: no cover (requires internet)
         path = path.removeprefix("/")
 
         response = requests.request(
-            "GET",
+            method,
             f"https://api.buttondown.com/{path}",
             headers={"Authorization": f"Token {self._api_key}"},
+            json=data,
         )
-        assert response.status_code == 200
-        return response.json()
+        response.raise_for_status()
+
+        return response
 
     def list_subscribers(
         self,
@@ -59,7 +78,13 @@ class AddSub(Operation):
     metadata: dict[str, str]
 
     def doit(self, api_client: Client):  # pragma: no cover (requires internet)
-        assert False  # <<<
+        sub = Subscriber(
+            email_address=self.email,
+            type="regular",
+            tags=self.tags,
+            metadata=self.metadata,
+        )
+        api_client.post("/v1/subscribers", data=sub.model_dump_json())
 
 
 class EditSub(Operation):
@@ -72,11 +97,21 @@ class EditSub(Operation):
         return self.new_email is None and self.tags is None and self.metadata is None
 
     def doit(self, api_client: Client):  # pragma: no cover (requires internet)
-        assert False  # <<<
+        data = {}
+        if self.new_email is not None:
+            data["email_address"] = self.new_email
+
+        if self.tags is not None:
+            data["tags"] = self.tags
+
+        if self.metadata is not None:
+            data["metadata"] = self.metadata
+
+        return api_client.patch(f"/v1/subscribers/{self.old_email}", data=data)
 
 
 class DeleteSub(Operation):
     email: str
 
     def doit(self, api_client: Client):  # pragma: no cover (requires internet)
-        assert False  # <<<
+        return api_client.delete(f"/v1/subscribers/{self.email}")
