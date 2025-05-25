@@ -1,6 +1,6 @@
 import click
 
-from . import baserow, buttondown
+from . import baserow, buttondown, buttondown_api
 from .sync import sync
 
 
@@ -70,7 +70,9 @@ def main(
         tags_column_names=baserow_tags_columns,
         metadata_column_names=baserow_metadata_columns,
     )
-    buttondown_data = buttondown.Data.load(api_key=buttondown_api_key)
+    buttondown_data = buttondown.Data.load(
+        api_client=buttondown_api.Client(buttondown_api_key)
+    )
 
     sync_result = sync(baserow_data, buttondown_data, dry_run=dry_run)
 

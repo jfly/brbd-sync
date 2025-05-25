@@ -1,10 +1,13 @@
 import click
 from pydantic import BaseModel
 
+from brbd_sync import buttondown_api
+
 from . import baserow as br
 from . import buttondown as bd
+from . import buttondown_api as bd_api
 
-SyncOperation = bd.Operation
+SyncOperation = buttondown_api.Operation
 
 
 class SyncResult(BaseModel):
@@ -47,7 +50,7 @@ def sync(
         # No such id in Baserow -> delete all Buttondown subs.
         if baserow_sub is None:
             for bd_sub_to_remove in buttondown_subs:
-                delete_op = bd.DeleteSub(email=bd_sub_to_remove.email)
+                delete_op = bd_api.DeleteSub(email=bd_sub_to_remove.email)
                 result.add_op(delete_op)
                 buttondown_data.delete(delete_op, dry_run=dry_run)
 
@@ -62,13 +65,13 @@ def sync(
         bd_sub_with_email = buttondown_data.get_subscriber(email=baserow_sub.email)
 
         if bd_sub_with_email is not None and bd_sub_with_email.id != baserow_sub.id:
-            delete_op = bd.DeleteSub(email=bd_sub_with_email.email)
+            delete_op = bd_api.DeleteSub(email=bd_sub_with_email.email)
             result.add_op(delete_op)
             buttondown_data.delete(delete_op, dry_run=dry_run)
 
         # No such id in Buttondown -> create it!
         if len(buttondown_subs) == 0:
-            edit_op = bd.AddSub(
+            edit_op = bd_api.AddSub(
                 email=baserow_sub.email,
                 tags=baserow_sub.tags,
                 metadata=baserow_sub.metadata,
@@ -81,13 +84,13 @@ def sync(
         # delete all but the first one.
         buttondown_sub, *bd_subs_to_remove = buttondown_subs
         for bd_sub_to_remove in bd_subs_to_remove:
-            delete_op = bd.DeleteSub(email=bd_sub_to_remove.email)
+            delete_op = bd_api.DeleteSub(email=bd_sub_to_remove.email)
             result.add_op(delete_op)
             buttondown_data.delete(delete_op, dry_run=dry_run)
 
         # We've got a matching row from Baserow and a subscription
         # from Buttondown -> edit the subscription in Buttondown to match.
-        edit_op = bd.EditSub(old_email=buttondown_sub.email)
+        edit_op = bd_api.EditSub(old_email=buttondown_sub.email)
         if baserow_sub.email != buttondown_sub.email:
             edit_op.new_email = baserow_sub.email
 

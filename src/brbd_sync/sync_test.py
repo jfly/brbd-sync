@@ -1,6 +1,18 @@
 from . import baserow as br
 from . import buttondown as bd
+from . import buttondown_api
+from .buttondown_api import AddSub, DeleteSub, EditSub
 from .sync import sync
+
+
+def db(subscribers: list[br.Subscriber]) -> br.Data:
+    return br.Data(subscribers=subscribers)
+
+
+def ml(subscribers: list[bd.Subscriber]) -> bd.Data:
+    return bd.Data(
+        subscribers=subscribers, api_client=buttondown_api.Client(api_key="bogus")
+    )
 
 
 def br_sub(
@@ -30,7 +42,7 @@ def bd_sub(
 ) -> bd.Subscriber:
     return bd.Subscriber(
         id=id,
-        email_address=email,
+        email=email,
         tags=tags,
         metadata={
             "id": id,
@@ -41,8 +53,8 @@ def bd_sub(
 
 def test_noop():
     result = sync(
-        br.Data(subscribers=[br_sub(id="1", email="test1@example.com")]),
-        bd.Data(subscribers=[bd_sub(id="1", email="test1@example.com")]),
+        db(subscribers=[br_sub(id="1", email="test1@example.com")]),
+        ml(subscribers=[bd_sub(id="1", email="test1@example.com")]),
         dry_run=True,
     )
     assert result.warnings == []
@@ -51,37 +63,37 @@ def test_noop():
 
 def test_add():
     result = sync(
-        br.Data(subscribers=[br_sub(id="1", email="test1@example.com")]),
-        bd.Data(subscribers=[]),
+        db(subscribers=[br_sub(id="1", email="test1@example.com")]),
+        ml(subscribers=[]),
         dry_run=True,
     )
     assert result.warnings == []
     assert result.operations == [
-        bd.AddSub(email="test1@example.com", metadata={"id": "1"}, tags=set())
+        AddSub(email="test1@example.com", metadata={"id": "1"}, tags=set())
     ]
 
 
 def test_remove():
     result = sync(
-        br.Data(subscribers=[]),
-        bd.Data(subscribers=[bd_sub(id="1", email="test1@example.com")]),
+        db(subscribers=[]),
+        ml(subscribers=[bd_sub(id="1", email="test1@example.com")]),
         dry_run=True,
     )
     assert result.warnings == []
     assert result.operations == [
-        bd.DeleteSub(email="test1@example.com"),
+        DeleteSub(email="test1@example.com"),
     ]
 
 
 def test_missing_email_in_baserow():
     result = sync(
-        br.Data(
+        db(
             subscribers=[
                 br_sub(id="1", email=""),
                 br_sub(id="2", email=""),
             ]
         ),
-        bd.Data(subscribers=[]),
+        ml(subscribers=[]),
         dry_run=True,
     )
     assert result.warnings == []
@@ -90,32 +102,30 @@ def test_missing_email_in_baserow():
 
 def test_edit_tags():
     result = sync(
-        br.Data(
+        db(
             subscribers=[
                 br_sub(id="1", email="test1@example.com", tags={"colby", "parmesan"})
             ]
         ),
-        bd.Data(
-            subscribers=[bd_sub(id="1", email="test1@example.com", tags={"parmesan"})]
-        ),
+        ml(subscribers=[bd_sub(id="1", email="test1@example.com", tags={"parmesan"})]),
         dry_run=True,
     )
     assert result.warnings == []
     assert result.operations == [
-        bd.EditSub(old_email="test1@example.com", tags={"colby", "parmesan"})
+        EditSub(old_email="test1@example.com", tags={"colby", "parmesan"})
     ]
 
 
 def test_edit_metadata():
     result = sync(
-        br.Data(
+        db(
             subscribers=[
                 br_sub(
                     id="1", email="test1@example.com", metadata={"sport": "speedcubing"}
                 )
             ]
         ),
-        bd.Data(
+        ml(
             subscribers=[
                 bd_sub(
                     id="1", email="test1@example.com", metadata={"sport": "baseball"}
@@ -126,7 +136,7 @@ def test_edit_metadata():
     )
     assert result.warnings == []
     assert result.operations == [
-        bd.EditSub(
+        EditSub(
             old_email="test1@example.com", metadata={"id": "1", "sport": "speedcubing"}
         ),
     ]
@@ -134,29 +144,25 @@ def test_edit_metadata():
 
 def test_edit_email():
     result = sync(
-        br.Data(subscribers=[br_sub(id="1", email="test1@example.com")]),
-        bd.Data(subscribers=[bd_sub(id="1", email="tst1@example.com")]),
+        db(subscribers=[br_sub(id="1", email="test1@example.com")]),
+        ml(subscribers=[bd_sub(id="1", email="tst1@example.com")]),
         dry_run=True,
     )
     assert result.warnings == []
     assert result.operations == [
-        bd.EditSub(old_email="tst1@example.com", new_email="test1@example.com"),
+        EditSub(old_email="tst1@example.com", new_email="test1@example.com"),
     ]
 
 
 def test_edit_multiple():
     result = sync(
-        br.Data(
-            subscribers=[br_sub(id="1", email="test1@example.com", tags={"colby"})]
-        ),
-        bd.Data(
-            subscribers=[bd_sub(id="1", email="tst1@example.com", tags={"parmesan"})]
-        ),
+        db(subscribers=[br_sub(id="1", email="test1@example.com", tags={"colby"})]),
+        ml(subscribers=[bd_sub(id="1", email="tst1@example.com", tags={"parmesan"})]),
         dry_run=True,
     )
     assert result.warnings == []
     assert result.operations == [
-        bd.EditSub(
+        EditSub(
             old_email="tst1@example.com",
             new_email="test1@example.com",
             tags={"colby"},
@@ -166,32 +172,28 @@ def test_edit_multiple():
 
 def test_dupe_emails_in_baserow():
     result = sync(
-        br.Data(
+        db(
             subscribers=[
                 br_sub(id="1", email="dupe@example.com"),
                 br_sub(id="2", email="dupe@example.com"),
             ]
         ),
-        bd.Data(
-            subscribers=[
-                bd_sub(id="2", email="dupe@example.com"),
-            ],
-        ),
+        ml(subscribers=[bd_sub(id="2", email="dupe@example.com")]),
         dry_run=True,
     )
     assert result.warnings == [
         "Unexpectedly found multiple Baserow rows with email='dupe@example.com'. I picked the one with id='1'"
     ]
     assert result.operations == [
-        bd.DeleteSub(email="dupe@example.com"),
-        bd.AddSub(email="dupe@example.com", metadata={"id": "1"}, tags=set()),
+        DeleteSub(email="dupe@example.com"),
+        AddSub(email="dupe@example.com", metadata={"id": "1"}, tags=set()),
     ]
 
 
 def test_dupe_ids_in_buttondown():
     result = sync(
-        br.Data(subscribers=[br_sub(id="1", email="test1@example.com")]),
-        bd.Data(
+        db(subscribers=[br_sub(id="1", email="test1@example.com")]),
+        ml(
             subscribers=[
                 bd_sub(id="1", email="dupe1@example.com"),
                 bd_sub(id="1", email="dupe2@example.com"),
@@ -201,8 +203,8 @@ def test_dupe_ids_in_buttondown():
     )
     assert result.warnings == []
     assert result.operations == [
-        bd.DeleteSub(email="dupe2@example.com"),
-        bd.EditSub(
+        DeleteSub(email="dupe2@example.com"),
+        EditSub(
             old_email="dupe1@example.com",
             new_email="test1@example.com",
         ),
@@ -214,26 +216,26 @@ def test_naive_create_would_introduce_dupe():
     # This wouldn't work because Buttondown doesn't allow for duplicate emails.
     # Instead, we need to first delete id 2 before creating id 1.
     result = sync(
-        br.Data(subscribers=[br_sub(id="1", email="j1@example.com")]),
-        bd.Data(subscribers=[bd_sub(id="2", email="j1@example.com")]),
+        db(subscribers=[br_sub(id="1", email="j1@example.com")]),
+        ml(subscribers=[bd_sub(id="2", email="j1@example.com")]),
         dry_run=True,
     )
     assert result.warnings == []
     assert result.operations == [
-        bd.DeleteSub(email="j1@example.com"),
-        bd.AddSub(email="j1@example.com", metadata={"id": "1"}, tags=set()),
+        DeleteSub(email="j1@example.com"),
+        AddSub(email="j1@example.com", metadata={"id": "1"}, tags=set()),
     ]
 
 
 def test_swap_email():
     result = sync(
-        br.Data(
+        db(
             subscribers=[
                 br_sub(id="1", email="j1@example.com"),
                 br_sub(id="2", email="j2@example.com"),
             ]
         ),
-        bd.Data(
+        ml(
             subscribers=[
                 bd_sub(id="1", email="j2@example.com"),
                 bd_sub(id="2", email="j1@example.com"),
@@ -243,20 +245,20 @@ def test_swap_email():
     )
     assert result.warnings == []
     assert result.operations == [
-        bd.DeleteSub(email="j1@example.com"),
-        bd.EditSub(old_email="j2@example.com", new_email="j1@example.com"),
-        bd.AddSub(email="j2@example.com", metadata={"id": "2"}, tags=set()),
+        DeleteSub(email="j1@example.com"),
+        EditSub(old_email="j2@example.com", new_email="j1@example.com"),
+        AddSub(email="j2@example.com", metadata={"id": "2"}, tags=set()),
     ]
 
 
 def test_confusing_delete_and_edit_email():
     result = sync(
-        br.Data(
+        db(
             subscribers=[
                 br_sub(id="1", email="j1@example.com"),
             ]
         ),
-        bd.Data(
+        ml(
             subscribers=[
                 bd_sub(id="1", email="j2@example.com"),
                 bd_sub(id="2", email="j1@example.com"),
@@ -266,6 +268,6 @@ def test_confusing_delete_and_edit_email():
     )
     assert result.warnings == []
     assert result.operations == [
-        bd.DeleteSub(email="j1@example.com"),
-        bd.EditSub(old_email="j2@example.com", new_email="j1@example.com"),
+        DeleteSub(email="j1@example.com"),
+        EditSub(old_email="j2@example.com", new_email="j1@example.com"),
     ]
