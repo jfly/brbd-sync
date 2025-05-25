@@ -1,6 +1,7 @@
 import click
 
 from . import baserow, buttondown
+from .sync import sync
 
 
 def option_with_envvar(*args, **kwargs):
@@ -49,99 +50,37 @@ class BaserowColumnNames(click.types.StringParamType):
     envvar="BUTTONDOWN_API_KEY",
     help="Buttondown api id.",
 )
+@option_with_envvar(
+    "--dry-run/--no-dry-run",
+    default=False,
+    envvar="BUTTONDOWN_DRY_RUN",
+    help="Do not change anything, only print out a list of what would happen.",
+)
 def main(
     baserow_api_key: str,
     baserow_table_id: int,
     baserow_tags_columns: list[str],
     baserow_metadata_columns: list[str],
     buttondown_api_key: str,
-):
-    baserow_data = baserow.BaserowData.load(
+    dry_run: bool,
+):  # pragma: no cover (requires internet)
+    baserow_data = baserow.Data.load(
         api_key=baserow_api_key,
         table_id=baserow_table_id,
         tags_column_names=baserow_tags_columns,
         metadata_column_names=baserow_metadata_columns,
     )
-    buttondown_data = buttondown.ButtondownData.load(api_key=buttondown_api_key)
+    buttondown_data = buttondown.Data.load(api_key=buttondown_api_key)
 
-    warnings = sync(baserow_data, buttondown_data)
+    sync_result = sync(baserow_data, buttondown_data, dry_run=dry_run)
 
-    if len(warnings) > 0:
-        click.secho(f"Found {len(warnings)} warning(s)", fg="yellow")
-        for warning in warnings:
-            click.secho(warning, fg="yellow")
-
-
-def sync(
-    baserow_data: baserow.BaserowData, buttondown_data: buttondown.ButtondownData
-) -> list[str]:
-    warnings = []
-
-    baserow_ids = set(s.id for s in baserow_data.subscribers)
-    buttondown_ids = set(s.id for s in buttondown_data.subscribers)
-    missing = sorted(baserow_ids - buttondown_ids)
-    extra = sorted(buttondown_ids - baserow_ids)
-
-    for id in extra:
-        bd_subs = buttondown_data.get_subscribers(id=id)
-        warnings.append(f"Extra: {bd_subs}")
-
-    for id in missing:
-        br_subs = baserow_data.get_subscriber(id=id)
-        warnings.append(f"Missing: {br_subs}")
-
-    # Now, generate a diffs for every id that exists in both systems.
-    synced_ids = sorted(baserow_ids & buttondown_ids)
-    for id in synced_ids:
-        baserow_sub = baserow_data.get_subscriber(id=id)
-        buttondown_subs = buttondown_data.get_subscribers(id=id)
-
-        match len(buttondown_subs):
-            case 0:
-                assert False, f"Unexpectedly found no buttondown subs with id {id}"
-            case 1:
-                (buttondown_sub,) = buttondown_subs
-            case _:
-                warnings.append(
-                    f"Unexpectedly found multiple Buttondown subscribers with id={id}, picking the first one"
-                )
-                buttondown_sub = buttondown_subs[0]
-
-        diff = compute_diff(baserow_sub, buttondown_sub)
-        for d in diff:
-            warnings.append(f"id={id}: {d}")
-
-    return warnings
-
-
-def compute_diff(
-    baserow_sub: baserow.BaserowSubscriber,
-    buttondown_sub: buttondown.ButtondownSubscriber,
-) -> list[str]:
-    diff = []
-
-    assert baserow_sub.id == buttondown_sub.id
-
-    # Check email.
-    if baserow_sub.email != buttondown_sub.email:
-        diff.append(f"Wrong email: {baserow_sub.email} != {buttondown_sub.email}")
-
-    # Check tags.
-    missings = sorted(baserow_sub.tags - buttondown_sub.tags)
-    extras = sorted(buttondown_sub.tags - baserow_sub.tags)
-    for missing in missings:
-        diff.append(f"Missing tag {missing}")
-    for extra in extras:
-        diff.append(f"Extra tag {extra}")
-
-    # Check metadata.
-    br_metadata = set(baserow_sub.metadata.items())
-    bd_metadata = set(buttondown_sub.metadata.items())
-    missings = sorted(br_metadata - bd_metadata)
-    extras = sorted(bd_metadata - br_metadata)
-    for key, val in missings:
-        diff.append(f"Missing metadata {key!r} = {val!r}")
-    for key, val in extras:
-        diff.append(f"Extra metadata {key!r} = {val!r}")
-
-    return diff
+    if len(sync_result.warnings) == 0:
+        click.secho(
+            f"Succeeded after {len(sync_result.operations)} operation(s). See above for details.",
+            fg="green",
+        )
+    else:
+        click.secho(
+            f"Performed {len(sync_result.operations)} operation(s), but encountered {len(sync_result.warnings)} warning(s). See above for details.",
+            fg="yellow",
+        )
