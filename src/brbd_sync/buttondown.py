@@ -49,7 +49,7 @@ class Data:
         return self._subscriber_by_email.get(email)
 
     def add(self, op: api.AddSub, dry_run: bool):
-        if not dry_run:
+        if not dry_run:  # pragma: no cover (requires internet)
             op.doit(self._api_client)
 
         id = op.metadata["id"]
@@ -63,13 +63,13 @@ class Data:
         )
 
     def delete(self, op: api.DeleteSub, dry_run: bool):
-        if not dry_run:
+        if not dry_run:  # pragma: no cover (requires internet)
             op.doit(self._api_client)
 
         self._delete_subscriber(op.email)
 
     def edit(self, op: api.EditSub, dry_run: bool):
-        if not dry_run:
+        if not dry_run:  # pragma: no cover (requires internet)
             op.doit(self._api_client)
 
         old_sub = self.get_subscriber(email=op.old_email)

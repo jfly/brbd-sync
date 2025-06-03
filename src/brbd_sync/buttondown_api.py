@@ -84,7 +84,7 @@ class AddSub(Operation):
             tags=self.tags,
             metadata=self.metadata,
         )
-        api_client.post("/v1/subscribers", data=sub.model_dump_json())
+        api_client.post("/v1/subscribers", data=sub.model_dump(mode="json"))
 
 
 class EditSub(Operation):
@@ -102,7 +102,7 @@ class EditSub(Operation):
             data["email_address"] = self.new_email
 
         if self.tags is not None:
-            data["tags"] = self.tags
+            data["tags"] = list(self.tags)
 
         if self.metadata is not None:
             data["metadata"] = self.metadata

@@ -34,7 +34,7 @@ class BaserowColumnNames(click.types.StringParamType):
     multiple=True,
     type=BaserowColumnNames(),
     envvar="BASEROW_TAGS_COLUMNS",
-    help="The name of a column in the Baserow table whose values should be converted to Buttondown tags. The tags will be prefixed with the name of the column. For example, if you have a column 'Hair color' with value 'red', then the resulting tag will be 'Hair color: red'. Can be repeated. If specified via environment variable, the value is split around commas (',')",
+    help="The name of a column in the Baserow table whose values should be converted to Buttondown tags. Can be repeated. If specified via environment variable, the value is split around commas (',')",
 )
 @option_with_envvar(
     "baserow_metadata_columns",

@@ -120,7 +120,7 @@ class Data(BaseModel):
             assert row.id is not None, f"Unexpectedly found a row with a None id? {row}"
 
             tags = set(
-                f"{tags_column_name}: {tag}"
+                tag
                 for tags_column_name in tags_column_names
                 for tag in row[tags_column_name]
             )
