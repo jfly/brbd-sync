@@ -1,3 +1,6 @@
+import logging
+from typing import Any
+
 import click
 
 from . import baserow, buttondown, buttondown_api
@@ -12,6 +15,23 @@ def option_with_envvar(*args, **kwargs):
 
 class BaserowColumnNames(click.types.StringParamType):
     envvar_list_splitter = ","
+
+
+def prompt(msg: str, choices: dict[str, Any]) -> bool:
+    choices = {label.lower(): value for label, value in choices.items()}
+    choices_str = "/".join(choices.keys())
+
+    answer = None
+    while answer is None:
+        response = input(msg + f" [{choices_str}] ")
+        value = choices.get(response.lower())
+        if value is not None:
+            return value
+
+        if response:
+            click.echo(f"{response!r} is not a valid choice!")
+
+    return True
 
 
 @click.command(context_settings={"auto_envvar_prefix": "BRBD_SYNC"})
@@ -52,7 +72,7 @@ class BaserowColumnNames(click.types.StringParamType):
 )
 @option_with_envvar(
     "--dry-run/--no-dry-run",
-    default=False,
+    default=None,
     envvar="BUTTONDOWN_DRY_RUN",
     help="Do not change anything, only print out a list of what would happen.",
 )
@@ -62,8 +82,16 @@ def main(
     baserow_tags_columns: list[str],
     baserow_metadata_columns: list[str],
     buttondown_api_key: str,
-    dry_run: bool,
+    dry_run: bool | None,
 ):  # pragma: no cover (requires internet)
+    logging.basicConfig()
+
+    if dry_run is None:
+        dry_run = prompt("Dry run?", {"Y": True, "n": False})
+
+    if dry_run:
+        click.secho("Doing a dry run", fg="yellow")
+
     baserow_data = baserow.Data.load(
         api_key=baserow_api_key,
         table_id=baserow_table_id,
