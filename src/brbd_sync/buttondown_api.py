@@ -1,4 +1,5 @@
 from typing import Any
+from urllib.parse import urlparse
 
 import requests
 from pydantic import BaseModel
@@ -14,6 +15,9 @@ class Subscriber(BaseModel):
 class ListSubscribersResponse(BaseModel):
     results: list[Subscriber]
     next: str | None
+
+
+BUTTONDOWN_API_DOMAIN = "api.buttondown.com"
 
 
 class Client:
@@ -41,7 +45,7 @@ class Client:
 
         response = requests.request(
             method,
-            f"https://api.buttondown.com/{path}",
+            f"https://{BUTTONDOWN_API_DOMAIN}/{path}",
             headers={"Authorization": f"Token {self._api_key}"},
             json=data,
         )
@@ -62,7 +66,14 @@ class Client:
             parsed_response = ListSubscribersResponse(**response)
             subscribers.extend(parsed_response.results)
 
-            next = parsed_response.next
+            if parsed_response.next is None:
+                next = None
+            else:
+                next_url = urlparse(parsed_response.next)
+                assert next_url.netloc == BUTTONDOWN_API_DOMAIN
+                assert isinstance(next_url.path, str)
+                assert isinstance(next_url.query, str)
+                next = next_url.path + "?" + next_url.query
 
         return subscribers
 
