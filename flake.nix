@@ -27,9 +27,7 @@
     };
 
     pyproject-build-systems = {
-      # TODO: consider upstreaming my build backend to `build-system-pkgs`.
-      # url = "github:pyproject-nix/build-system-pkgs";
-      url = "github:jfly/build-system-pkgs/add-py-generator-build-backend";
+      url = "github:pyproject-nix/build-system-pkgs";
       inputs.pyproject-nix.follows = "pyproject-nix";
       inputs.uv2nix.follows = "uv2nix";
       inputs.nixpkgs.follows = "nixpkgs";

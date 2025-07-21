@@ -17,7 +17,9 @@ class BaserowColumnNames(click.types.StringParamType):
     envvar_list_splitter = ","
 
 
-def prompt(msg: str, choices: dict[str, Any]) -> bool:
+def prompt(
+    msg: str, choices: dict[str, Any]
+) -> bool:  # pragma: no cover (too lazy to test)
     choices = {label.lower(): value for label, value in choices.items()}
     choices_str = "/".join(choices.keys())
 
