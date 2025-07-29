@@ -280,7 +280,7 @@ def test_buttondown_signup():
     # Mailing list subscribers with no id means they
     # signed up directly to the mailing list.
     result = sync(
-        db(subscribers=[]),
+        db(subscribers=[br_sub(id="1", email="old@example.com")]),
         ml(
             subscribers=[
                 bd_sub(
@@ -291,11 +291,19 @@ def test_buttondown_signup():
                     id=None,
                     email="beaver@example.com",
                 ),
+                # This person is already in the database, but doesn't
+                # have an id in Buttondown. Somebody screwed up ;)
+                bd_sub(
+                    id=None,
+                    email="old@example.com",
+                ),
             ]
         ),
         dry_run=True,
     )
     assert result.warnings == [
-        "The following emails signed up for the newsletter directly and need to be added to the database: eager@example.com, beaver@example.com"
+        "The following emails signed up for the newsletter directly and need to be added to the database: beaver@example.com, eager@example.com"
     ]
-    assert result.operations == []
+    assert result.operations == [
+        EditSub(old_email="old@example.com", metadata={"id": "1"}),
+    ]

@@ -2,6 +2,7 @@ import click
 from pydantic import BaseModel
 
 from brbd_sync import buttondown_api
+from brbd_sync.util import partition
 
 from . import baserow as br
 from . import buttondown as bd
@@ -30,6 +31,25 @@ def sync(
 ) -> SyncResult:
     result = SyncResult()
 
+    def edit_buttondown_sub(
+        buttondown_sub: bd.Subscriber, baserow_sub: br.SubscriberWithEmail
+    ):
+        # We've got a matching row from Baserow and a subscription
+        # from Buttondown -> edit the subscription in Buttondown to match.
+        edit_op = bd_api.EditSub(old_email=buttondown_sub.email)
+        if baserow_sub.email != buttondown_sub.email:
+            edit_op.new_email = baserow_sub.email
+
+        if baserow_sub.tags != buttondown_sub.tags:
+            edit_op.tags = baserow_sub.tags
+
+        if baserow_sub.metadata != buttondown_sub.metadata:
+            edit_op.metadata = baserow_sub.metadata
+
+        if not edit_op.is_noop():
+            result.add_op(edit_op)
+            buttondown_data.edit(edit_op, dry_run=dry_run)
+
     dupe_emails, baserow_data = (
         baserow_data_possible_email_dupes.with_no_duplicate_emails()
     )
@@ -42,12 +62,40 @@ def sync(
 
     baserow_ids = set(s.id for s in baserow_data.subscribers)
     buttondown_ids = set(s.id for s in buttondown_data.subscribers if s.id is not None)
-    new_buttondown_subs = [s for s in buttondown_data.subscribers if s.id is None]
+
+    # Someone in the mailing list without an `id` is either:
+    #
+    #   1. A new subscriber who signed up directly to the mailing list, OR
+    #   2. "Corrupted": there's already a row in the database with their email,
+    #      but they don't have an `id` in the mailing list. This can only happen
+    #      if a human does something wrong.
+    #
+    # We can distinguish between these by checking the database to see if we
+    # have someone with the same email address.
+    buttondown_subs_missing_id = [
+        s for s in buttondown_data.subscribers if s.id is None
+    ]
+    new_buttondown_subs, corrupted_buttondown_subs = partition(
+        buttondown_subs_missing_id,
+        lambda sub: baserow_data.get_subscriber(email=sub.email) is None,
+    )
+
     if len(new_buttondown_subs) > 0:
-        pretty_emails = ", ".join(sub.email for sub in new_buttondown_subs)
+        # A new subscriber. Warn the user that they should add them to the database.
+        pretty_emails = ", ".join(sorted(sub.email for sub in new_buttondown_subs))
         result.add_warning(
             f"The following emails signed up for the newsletter directly and need to be added to the database: {pretty_emails}"
         )
+
+    # Edit all the corrupted subscribers so they match.
+    for corrupted_buttondown_sub in corrupted_buttondown_subs:
+        email = corrupted_buttondown_sub.email
+        baserow_sub = baserow_data.get_subscriber(email=email)
+        assert baserow_sub is not None, (
+            f"Unexpected Buttondown subscriber with no corresponding row in Baserow: {email}"
+        )
+
+        edit_buttondown_sub(corrupted_buttondown_sub, baserow_sub)
 
     for id in sorted(baserow_ids | buttondown_ids):
         baserow_sub = baserow_data.get_subscriber(id=id)
@@ -96,18 +144,6 @@ def sync(
 
         # We've got a matching row from Baserow and a subscription
         # from Buttondown -> edit the subscription in Buttondown to match.
-        edit_op = bd_api.EditSub(old_email=buttondown_sub.email)
-        if baserow_sub.email != buttondown_sub.email:
-            edit_op.new_email = baserow_sub.email
-
-        if baserow_sub.tags != buttondown_sub.tags:
-            edit_op.tags = baserow_sub.tags
-
-        if baserow_sub.metadata != buttondown_sub.metadata:
-            edit_op.metadata = baserow_sub.metadata
-
-        if not edit_op.is_noop():
-            result.add_op(edit_op)
-            buttondown_data.edit(edit_op, dry_run=dry_run)
+        edit_buttondown_sub(buttondown_sub, baserow_sub)
 
     return result

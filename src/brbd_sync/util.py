@@ -25,3 +25,16 @@ def unique_group_by[K, V](arr: list[V], key: Callable[[V], K]) -> dict[K, V]:
         result[k] = v
 
     return result
+
+
+def partition[V](arr: list[V], pred: Callable[[V], bool]) -> tuple[list[V], list[V]]:
+    matching: list[V] = []
+    not_matching: list[V] = []
+
+    for v in arr:
+        if pred(v):
+            matching.append(v)
+        else:
+            not_matching.append(v)
+
+    return matching, not_matching
