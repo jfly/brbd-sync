@@ -41,7 +41,13 @@ def sync(
         )
 
     baserow_ids = set(s.id for s in baserow_data.subscribers)
-    buttondown_ids = set(s.id for s in buttondown_data.subscribers)
+    buttondown_ids = set(s.id for s in buttondown_data.subscribers if s.id is not None)
+    new_buttondown_subs = [s for s in buttondown_data.subscribers if s.id is None]
+    if len(new_buttondown_subs) > 0:
+        pretty_emails = ", ".join(sub.email for sub in new_buttondown_subs)
+        result.add_warning(
+            f"The following emails signed up for the newsletter directly and need to be added to the database: {pretty_emails}"
+        )
 
     for id in sorted(baserow_ids | buttondown_ids):
         baserow_sub = baserow_data.get_subscriber(id=id)

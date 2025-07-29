@@ -35,19 +35,22 @@ def br_sub(
 
 
 def bd_sub(
-    id: str,
+    id: str | None,
     email: str,
     tags: set[str] = set(),
     metadata: dict[str, str] = {},
 ) -> bd.Subscriber:
+    if id is not None:
+        metadata = {
+            "id": id,
+            **metadata,
+        }
+
     return bd.Subscriber(
         id=id,
         email=email,
         tags=tags,
-        metadata={
-            "id": id,
-            **metadata,
-        },
+        metadata=metadata,
     )
 
 
@@ -271,3 +274,28 @@ def test_confusing_delete_and_edit_email():
         DeleteSub(email="j1@example.com"),
         EditSub(old_email="j2@example.com", new_email="j1@example.com"),
     ]
+
+
+def test_buttondown_signup():
+    # Mailing list subscribers with no id means they
+    # signed up directly to the mailing list.
+    result = sync(
+        db(subscribers=[]),
+        ml(
+            subscribers=[
+                bd_sub(
+                    id=None,
+                    email="eager@example.com",
+                ),
+                bd_sub(
+                    id=None,
+                    email="beaver@example.com",
+                ),
+            ]
+        ),
+        dry_run=True,
+    )
+    assert result.warnings == [
+        "The following emails signed up for the newsletter directly and need to be added to the database: eager@example.com, beaver@example.com"
+    ]
+    assert result.operations == []

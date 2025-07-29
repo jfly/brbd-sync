@@ -1,4 +1,3 @@
-import uuid
 from typing import Self
 
 from pydantic import BaseModel
@@ -8,7 +7,7 @@ from .util import group_by, unique_group_by
 
 
 class Subscriber(BaseModel):
-    id: str
+    id: str | None
     email: str
     tags: set[str]
     metadata: dict[str, str]
@@ -38,7 +37,7 @@ class Data:
         self._recompute_indices()
 
     def _recompute_indices(self):
-        self._subscribers_by_id: dict[str, list[Subscriber]] = group_by(
+        self._subscribers_by_id: dict[str | None, list[Subscriber]] = group_by(
             self.subscribers, lambda s: s.id
         )
 
@@ -93,7 +92,7 @@ class Data:
         for api_sub in api_client.list_subscribers():
             subscribers.append(
                 Subscriber(
-                    id=api_sub.metadata.get("id", f"bogus-{uuid.uuid4()}"),
+                    id=api_sub.metadata.get("id"),
                     email=api_sub.email_address,
                     tags=api_sub.tags,
                     metadata=api_sub.metadata,
