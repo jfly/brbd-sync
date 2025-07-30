@@ -5,6 +5,13 @@ import requests
 from pydantic import BaseModel
 
 
+class SkippableEmailError(Exception):
+    def __init__(self, operation: str, code: str, detail: str):
+        self.operation = operation
+        self.code = code
+        self.detail = detail
+
+
 class Subscriber(BaseModel):
     type: str
     email_address: str
@@ -95,7 +102,18 @@ class AddSub(Operation):
             tags=self.tags,
             metadata=self.metadata,
         )
-        api_client.post("/v1/subscribers", data=sub.model_dump(mode="json"))
+        try:
+            api_client.post("/v1/subscribers", data=sub.model_dump(mode="json"))
+        except requests.HTTPError as e:
+            json = e.response.json()
+            code = json.get("code")
+            if e.response.status_code == 400 and code == "subscriber_blocked":
+                raise SkippableEmailError(
+                    operation="add",
+                    code=code,
+                    detail=json.get("detail"),
+                )
+            raise
 
 
 class EditSub(Operation):
@@ -118,7 +136,18 @@ class EditSub(Operation):
         if self.metadata is not None:
             data["metadata"] = self.metadata
 
-        return api_client.patch(f"/v1/subscribers/{self.old_email}", data=data)
+        try:
+            return api_client.patch(f"/v1/subscribers/{self.old_email}", data=data)
+        except requests.HTTPError as e:
+            json = e.response.json()
+            code = json.get("code")
+            if e.response.status_code == 400 and code == "email_invalid":
+                raise SkippableEmailError(
+                    operation="edit",
+                    code=code,
+                    detail=json.get("detail"),
+                )
+            raise
 
 
 class DeleteSub(Operation):

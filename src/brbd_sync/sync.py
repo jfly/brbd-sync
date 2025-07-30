@@ -48,7 +48,12 @@ def sync(
 
         if not edit_op.is_noop():
             result.add_op(edit_op)
-            buttondown_data.edit(edit_op, dry_run=dry_run)
+            try:
+                buttondown_data.edit(edit_op, dry_run=dry_run)
+            except bd_api.SkippableEmailError as e:
+                result.add_warning(
+                    f"Ran into trouble changing the email from {edit_op.old_email} to {edit_op.new_email}. code={e.code!r} detail={e.detail!r}"
+                )
 
     dupe_emails, baserow_data = (
         baserow_data_possible_email_dupes.with_no_duplicate_emails()
@@ -125,13 +130,18 @@ def sync(
 
         # No such id in Buttondown -> create it!
         if len(buttondown_subs) == 0:
-            edit_op = bd_api.AddSub(
+            add_op = bd_api.AddSub(
                 email=baserow_sub.email,
                 tags=baserow_sub.tags,
                 metadata=baserow_sub.metadata,
             )
-            result.add_op(edit_op)
-            buttondown_data.add(edit_op, dry_run=dry_run)
+            result.add_op(add_op)
+            try:
+                buttondown_data.add(add_op, dry_run=dry_run)
+            except bd_api.SkippableEmailError as e:
+                result.add_warning(
+                    f"Ran into trouble adding the email {add_op.email}. code={e.code!r} detail={e.detail!r}"
+                )
             continue
 
         # If there are multiple Buttondown subs with the same id,
