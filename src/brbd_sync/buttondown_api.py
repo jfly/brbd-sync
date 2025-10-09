@@ -107,7 +107,8 @@ class AddSub(Operation):
         except requests.HTTPError as e:
             json = e.response.json()
             code = json.get("code")
-            if e.response.status_code == 400 and code == "subscriber_blocked":
+            skippable_email_codes = ["subscriber_blocked", "email_invalid"]
+            if e.response.status_code == 400 and code in skippable_email_codes:
                 raise SkippableEmailError(
                     operation="add",
                     code=code,
