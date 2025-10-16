@@ -17,6 +17,11 @@ class SkippableEmailError(Exception):
         self.detail = detail
 
 
+class UnskippableEmailError(Exception):
+    def __init__(self, msg: str):  # pragma: no cover (requires internet)
+        self.msg = msg
+
+
 class Subscriber(BaseModel):
     type: str
     email_address: str
@@ -128,12 +133,10 @@ class AddSub(Operation):
                     code=code,
                     detail=json.get("detail"),
                 )
-            logger.error(
-                "AddSub operation failed with HTTP status %s. Response body: %s",
-                e.response.status_code,
-                json,
+
+            raise e from UnskippableEmailError(
+                f"AddSub operation failed with HTTP status {e.response.status_code}. Response body: {json}"
             )
-            raise
 
 
 class EditSub(Operation):
