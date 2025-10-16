@@ -1,12 +1,17 @@
+import logging
 from typing import Any
 from urllib.parse import urlparse
 
 import requests
 from pydantic import BaseModel
 
+logger = logging.getLogger(__name__)
+
 
 class SkippableEmailError(Exception):
-    def __init__(self, operation: str, code: str, detail: str):
+    def __init__(
+        self, operation: str, code: str, detail: str
+    ):  # pragma: no cover (requires internet)
         self.operation = operation
         self.code = code
         self.detail = detail
@@ -107,6 +112,15 @@ class AddSub(Operation):
         except requests.HTTPError as e:
             json = e.response.json()
             code = json.get("code")
+
+            # Sometimes we get these 422s instead of more description 400s with error codes. :shrug:
+            if e.response.status_code == 422:
+                raise SkippableEmailError(
+                    operation="add",
+                    code=code,
+                    detail=json,
+                )
+
             skippable_email_codes = ["subscriber_blocked", "email_invalid"]
             if e.response.status_code == 400 and code in skippable_email_codes:
                 raise SkippableEmailError(
@@ -114,6 +128,11 @@ class AddSub(Operation):
                     code=code,
                     detail=json.get("detail"),
                 )
+            logger.error(
+                "AddSub operation failed with HTTP status %s. Response body: %s",
+                e.response.status_code,
+                json,
+            )
             raise
 
 

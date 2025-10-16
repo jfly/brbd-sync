@@ -50,7 +50,9 @@ def sync(
             result.add_op(edit_op)
             try:
                 buttondown_data.edit(edit_op, dry_run=dry_run)
-            except bd_api.SkippableEmailError as e:
+            except (
+                bd_api.SkippableEmailError
+            ) as e:  # pragma: no cover (requires internet)
                 result.add_warning(
                     f"Ran into trouble changing the email from {edit_op.old_email} to {edit_op.new_email}. code={e.code!r} detail={e.detail!r}"
                 )
@@ -138,7 +140,7 @@ def sync(
             result.add_op(add_op)
             try:
                 buttondown_data.add(add_op, dry_run=dry_run)
-            except bd_api.SkippableEmailError as e:
+            except bd_api.SkippableEmailError as e:  # pragma: no cover
                 result.add_warning(
                     f"Ran into trouble adding the email {add_op.email}. code={e.code!r} detail={e.detail!r}"
                 )
