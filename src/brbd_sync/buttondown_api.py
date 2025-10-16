@@ -126,7 +126,13 @@ class AddSub(Operation):
                     detail=json,
                 )
 
-            skippable_email_codes = ["subscriber_blocked", "email_invalid"]
+            # Specific 400s that we've seen. It's entirely possible
+            # it would make more sense to skip all 400s instead. Just being cautious.
+            skippable_email_codes = [
+                "subscriber_blocked",
+                "email_invalid",
+                "subscriber_suppressed",
+            ]
             if e.response.status_code == 400 and code in skippable_email_codes:
                 raise SkippableEmailError(
                     operation="add",
